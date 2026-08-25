@@ -8,26 +8,24 @@
 import SwiftUI
 
 struct ContentView: View {
-    
+
     @State private var messages: [Message] = [
         Message(
             text: "Hallo! Ich bin dein Deutschlehrer. Wie geht es dir heute?",
             isUser: false
         ),
-
         Message(
-            text: "Hallo! Mir geht es gut, und du?",
+            text: "Hallo! Mir geht es gut, und dir?",
             isUser: true
         ),
-
         Message(
             text: "Mir geht es auch gut! Was hast du heute gemacht?",
-            isUser: false,
-            correction: "Tip: „und dir?“ is more natural than „und du?“ here!"
+            isUser: false
         )
     ]
-    
+
     @State private var inputText: String = ""
+    @State private var isSending = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -94,14 +92,22 @@ struct ContentView: View {
         let newMessage = Message(text: trimmedText, isUser: true)
         messages.append(newMessage)
         inputText = ""
+        isSending = true
 
-        // To test (will be deleted)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            let botReply = Message(
-                text: "Das ist schön zu hören!",
-                isUser: false
-            )
-            messages.append(botReply)
+        Task {
+            do {
+                let replyText = try await HuggingFaceService.shared.sendMessage(history: messages)
+                await MainActor.run {
+                    messages.append(Message(text: replyText, isUser: false))
+                    isSending = false
+                }
+            } catch {
+                await MainActor.run {
+                    messages.append(Message(text: "Entschuldigung.", isUser: false))
+                    isSending = false
+                    print("HF error:", error)
+                }
+            }
         }
     }
 }
@@ -111,25 +117,12 @@ struct ChatBubbleView: View {
     let message: Message
 
     var body: some View {
-        VStack(alignment: message.isUser ? .trailing : .leading, spacing: 6) {
-            // Correction Banner above bot responses
-            if let correction = message.correction {
-                Text(correction)
-                    .font(.caption)
-                    .padding(8)
-                    .background(Color.orange.opacity(0.15))
-                    .foregroundColor(.orange)
-                    .cornerRadius(8)
-            }
-
-            // Chat Bubble Text
-            Text(message.text)
-                .padding(12)
-                .background(message.isUser ? Color.blue : Color(.secondarySystemBackground))
-                .foregroundColor(message.isUser ? .white : .primary)
-                .cornerRadius(16)
-        }
-        .frame(maxWidth: .infinity, alignment: message.isUser ? .trailing : .leading)
+        Text(message.text)
+            .padding(12)
+            .background(message.isUser ? Color.blue : Color(.secondarySystemBackground))
+            .foregroundColor(message.isUser ? .white : .primary)
+            .cornerRadius(16)
+            .frame(maxWidth: .infinity, alignment: message.isUser ? .trailing : .leading)
     }
 }
 

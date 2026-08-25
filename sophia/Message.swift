@@ -11,11 +11,9 @@ struct Message: Identifiable {
     let id = UUID()
     let text: String
     let isUser: Bool // user or AI
-    let correction: String? // AI correction
-    
-    init(text: String, isUser: Bool, correction: String? = nil) {
+
+    init(text: String, isUser: Bool) {
         self.text = text
         self.isUser = isUser
-        self.correction = correction
     }
 }
